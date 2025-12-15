@@ -5,17 +5,20 @@ import Webcam from "./Webcam";
 export default function EmotionDetector() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const runningRef = useRef(false);
-  const modelsLoadedRef = useRef(false);
+  const rafRef = useRef(null);
 
-  const [status, setStatus] = useState("Loading AI models...");
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [status, setStatus] = useState("Loading models...");
   const [emotion, setEmotion] = useState("—");
   const [emoji, setEmoji] = useState("🙂");
 
   /* =========================================================
-     1. LOAD MODELS (SSD + LANDMARKS + EXPRESSIONS)
+     1. LOAD MODELS (ONCE)
   ========================================================= */
   useEffect(() => {
+    let cancelled = false;
+
     const loadModels = async () => {
       try {
         const MODEL_URL = "/models";
@@ -24,10 +27,12 @@ export default function EmotionDetector() {
         await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
         await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
 
-        modelsLoadedRef.current = true;
-        setStatus("Models loaded. Waiting for camera...");
+        if (!cancelled) {
+          setModelsLoaded(true);
+          setStatus("Models loaded. Waiting for camera...");
+        }
       } catch (err) {
-        console.error(err);
+        console.error("Model load error:", err);
         setStatus("Failed to load models");
       }
     };
@@ -35,30 +40,35 @@ export default function EmotionDetector() {
     loadModels();
 
     return () => {
-      runningRef.current = false;
+      cancelled = true;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
   /* =========================================================
-     2. CAMERA READY (START ONLY IF MODELS READY)
+     2. CAMERA READY CALLBACK
   ========================================================= */
   const handleVideoReady = (video) => {
-    if (!modelsLoadedRef.current) {
-      setStatus("Models not ready yet...");
-      return;
-    }
-
-    if (runningRef.current) return;
-
     videoRef.current = video;
-    runningRef.current = true;
-
-    setStatus("Detecting expressions...");
-    detectLoop();
+    setCameraReady(true);
   };
 
   /* =========================================================
-     3. EMOTION → EMOJI
+     3. START DETECTION (ONLY WHEN SAFE)
+  ========================================================= */
+  useEffect(() => {
+    if (!modelsLoaded || !cameraReady) return;
+
+    setStatus("Detecting expressions...");
+    detectLoop();
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [modelsLoaded, cameraReady]);
+
+  /* =========================================================
+     4. EMOJI MAPPER
   ========================================================= */
   const emotionToEmoji = (emotion, score) => {
     if (emotion === "happy" && score > 0.8) return "😂";
@@ -72,57 +82,59 @@ export default function EmotionDetector() {
   };
 
   /* =========================================================
-     4. DETECTION LOOP (1 FPS = stable)
+     5. DETECTION LOOP (SSD Mobilenet)
   ========================================================= */
   const detectLoop = async () => {
-    if (!runningRef.current) return;
-
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
-    if (video && canvas && video.readyState === 4) {
-      const displaySize = {
-        width: video.videoWidth,
-        height: video.videoHeight,
-      };
-
-      canvas.width = displaySize.width;
-      canvas.height = displaySize.height;
-      faceapi.matchDimensions(canvas, displaySize);
-
-      const detections = await faceapi
-        .detectSingleFace(video, new faceapi.SsdMobilenetv1Options({
-          minConfidence: 0.4, // VERY sensitive but stable
-        }))
-        .withFaceLandmarks()
-        .withFaceExpressions();
-
-      const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (detections) {
-        const resized = faceapi.resizeResults(detections, displaySize);
-        faceapi.draw.drawDetections(canvas, resized);
-        faceapi.draw.drawFaceLandmarks(canvas, resized);
-
-        const expressions = detections.expressions;
-        const [dominant, confidence] = Object.entries(expressions)
-          .sort((a, b) => b[1] - a[1])[0];
-
-        setEmotion(dominant);
-        setEmoji(emotionToEmoji(dominant, confidence));
-      } else {
-        setEmotion("No face");
-        setEmoji("❓");
-      }
+    if (!video || !canvas || video.readyState !== 4) {
+      rafRef.current = requestAnimationFrame(detectLoop);
+      return;
     }
 
-    // 🔁 detect once per second (smooth & accurate)
-    setTimeout(detectLoop, 1000);
+    const displaySize = {
+      width: video.videoWidth,
+      height: video.videoHeight,
+    };
+
+    canvas.width = displaySize.width;
+    canvas.height = displaySize.height;
+    faceapi.matchDimensions(canvas, displaySize);
+
+    const detections = await faceapi
+      .detectAllFaces(
+        video,
+        new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 })
+      )
+      .withFaceLandmarks()
+      .withFaceExpressions();
+
+    const resized = faceapi.resizeResults(detections, displaySize);
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    faceapi.draw.drawDetections(canvas, resized);
+    faceapi.draw.drawFaceLandmarks(canvas, resized);
+
+    if (resized.length > 0) {
+      const expressions = resized[0].expressions;
+      const [topEmotion, confidence] = Object.entries(expressions).sort(
+        (a, b) => b[1] - a[1]
+      )[0];
+
+      setEmotion(topEmotion);
+      setEmoji(emotionToEmoji(topEmotion, confidence));
+    } else {
+      setEmotion("No face");
+      setEmoji("❓");
+    }
+
+    rafRef.current = requestAnimationFrame(detectLoop);
   };
 
   /* =========================================================
-     5. RENDER
+     6. RENDER
   ========================================================= */
   return (
     <div className="detector-inner">
@@ -141,8 +153,12 @@ export default function EmotionDetector() {
 
       <div className="result-box">
         <h3>Detection Results</h3>
-        <div><strong>Status:</strong> {status}</div>
-        <div><strong>Emotion:</strong> {emotion} {emoji}</div>
+        <div className="result-item">
+          <strong>Status:</strong> {status}
+        </div>
+        <div className="result-item">
+          <strong>Emotion:</strong> {emotion} {emoji}
+        </div>
       </div>
     </div>
   );
