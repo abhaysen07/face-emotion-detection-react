@@ -1,0 +1,8 @@
+.webcam-box {
+  background: #222;
+  padding: 12px;
+  border-radius: 12px;
+  width: 480px;
+  height: 360px;
+  position: relative;
+}

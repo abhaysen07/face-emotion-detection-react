@@ -1,0 +1,76 @@
+/* Page container: center content and give breathing room on wide screens */
+.home-page {
+  max-width: 1200px;        /* increase so it doesn't feel squeezed on wide displays */
+  margin: 0 auto;           /* center the whole page horizontally */
+  padding: 2rem 1.5rem;     /* a bit more vertical padding */
+  color: #413030;
+  box-sizing: border-box;
+}
+
+/* HERO: better column sizing for wide screens and centered layout */
+.hero {
+  display: grid;
+  /* Left column grows to take remaining space, right column has fixed/comfortable width */
+  grid-template-columns: minmax(360px, 1fr) 420px;
+  gap: 40px;
+  align-items: center;
+  justify-items: center;    /* centers the right block nicely */
+  margin: 0 auto 28px auto; /* keep hero centered inside the page */
+  width: 100%;
+  max-width: 1100px;        /* ensure hero doesn't stretch beyond comfortable line-length */
+}
+
+/* make sure left column content is left-aligned visually, but not glued to edge */
+.hero-inner {
+  text-align: left;
+  margin: 0;
+  padding-right: 8px;
+  max-width: 720px;
+}
+
+/* Balance the hero placeholder so it visually centers in its column */
+.hero-image {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-image .hero-placeholder {
+  width: 100%;
+  max-width: 420px;
+  height: 260px;
+  border-radius: 12px;
+}
+
+/* Slightly larger hero title on wide screens */
+.hero-title {
+  font-size: clamp(30px, 4.2vw, 56px); /* responsive scaling */
+  margin: 0 0 12px 0;
+  line-height: 1.02;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+/* CTA area spacing */
+.hero-actions {
+  margin-top: 14px;
+}
+
+/* Responsive: stack columns on narrower screens */
+@media (max-width: 920px) {
+  .home-page { padding: 1.25rem; }
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    max-width: 100%;
+  }
+  .hero-image .hero-placeholder { height: 180px; max-width: 100%; }
+  .hero-title { font-size: 34px; text-align: left; }
+}
+
+@media (max-width: 480px) {
+  .hero-title { font-size: 28px; }
+  .hero-sub { font-size: 15px; }
+  .hero-actions { flex-direction: column; gap: 10px; align-items: stretch; }
+}

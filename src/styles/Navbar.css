@@ -1,0 +1,93 @@
+/* ============================================================
+   File: Navbar.css
+   Description:
+     - Styling for Navbar.jsx component
+     - Fixed to top, minimal responsive design
+   ============================================================ */
+
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 58px;
+  background: #988b8b;     /* your theme color */
+  border-bottom: 1px solid #632121;
+  z-index: 9999;
+  display: flex;
+  padding: 0;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+/* container for centering */
+.navbar-container {
+  max-width: 1100px;
+  width: 92%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+/* brand text */
+.navbar-brand {
+  font-size: 18px;
+  font-weight: 700;
+  cursor: default;
+}
+
+/* remove underline on brand link */
+.brand-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* nav links wrapper */
+.navbar-links {
+  display: flex;
+  gap: 12px;
+}
+
+/* default link style */
+.navbar-link {
+  background: transparent;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  text-decoration: none;       /* NavLink fix */
+  color: #000000;              /* text color */
+}
+
+/* hover effect */
+.navbar-link:hover {
+  background: #bd6f6f;          /* your theme hover */
+  color: white;
+}
+
+/* ACTIVE ROUTE highlight */
+.navbar-link.active {
+  background: #7a5353;          /* darker version of theme */
+  color: white;
+  font-weight: 600;
+}
+
+/* responsive adjustments */
+@media (max-width: 640px) {
+  .navbar-container {
+    width: 96%;
+  }
+  .navbar-brand {
+    font-size: 16px;
+  }
+  .navbar-links {
+    gap: 8px;
+  }
+  .navbar-link {
+    padding: 6px 10px;
+    font-size: 14px;
+  }
+}
